@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  crypto-analyzer:
+    image: nginx:alpine
+    container_name: crypto-analyzer-ultimate
+    ports:
+      - "8080:80"
+    volumes:
+      - ./index.html:/usr/share/nginx/html/index.html:ro
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Bratislava
+    labels:
+      - "com.crypto-analyzer.description=Crypto Analyzer Ultimate - Trading Analysis Tool"
+      - "com.crypto-analyzer.version=4.0.0"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

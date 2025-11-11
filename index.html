@@ -1,0 +1,2492 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Analyzer Ultimate - Watchlist + Multi-TF</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        .glow-green {
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
+        }
+        .glow-red {
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 8px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: rgba(139, 92, 246, 0.5);
+            border-radius: 4px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: rgba(139, 92, 246, 0.8);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+        // Icons
+        const TrendingUp = ({ size = 32 }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+                <polyline points="16 7 22 7 22 13"></polyline>
+            </svg>
+        );
+
+        const TrendingDown = ({ size = 32 }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="22 17 13.5 8.5 8.5 13.5 2 7"></polyline>
+                <polyline points="16 17 22 17 22 11"></polyline>
+            </svg>
+        );
+
+        const Activity = ({ size = 32 }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+        );
+
+        const DollarSign = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="1" x2="12" y2="23"></line>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+        );
+
+        const RefreshCw = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+        );
+
+        const Bell = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+        );
+
+        const Settings = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M12 1v6m0 6v6m5.2-13.2-4.2 4.2m0 6 4.2 4.2M23 12h-6m-6 0H1m13.2 5.2-4.2-4.2m0-6-4.2-4.2"></path>
+            </svg>
+        );
+
+        const Eye = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+        );
+
+        const CryptoTradingAnalyzer = () => {
+          const [view, setView] = useState('watchlist'); // 'watchlist', 'detail', or 'backtest'
+          const [selectedCoin, setSelectedCoin] = useState('BTC');
+          const [selectedTimeframe, setSelectedTimeframe] = useState('1h');
+          const [watchlistData, setWatchlistData] = useState({});
+          const [detailData, setDetailData] = useState(null);
+          const [loading, setLoading] = useState(false);
+          const [lastUpdate, setLastUpdate] = useState(null);
+          
+          // Settings
+          const [telegramToken, setTelegramToken] = useState(localStorage.getItem('telegramToken') || '');
+          const [telegramChatId, setTelegramChatId] = useState(localStorage.getItem('telegramChatId') || '');
+          const [alertsEnabled, setAlertsEnabled] = useState(localStorage.getItem('alertsEnabled') === 'true');
+          const [showSettings, setShowSettings] = useState(false);
+          
+          // Watchlist configuration
+          const [watchedCoins, setWatchedCoins] = useState(
+            JSON.parse(localStorage.getItem('watchedCoins') || '["BTC","ETH","SOL","BNB"]')
+          );
+          const [watchedTimeframes, setWatchedTimeframes] = useState(
+            JSON.parse(localStorage.getItem('watchedTimeframes') || '["5m","1h","4h"]')
+          );
+          const [alertMode, setAlertMode] = useState(
+            localStorage.getItem('alertMode') || 'confluence' // 'all', 'confluence', 'perfect'
+          );
+          const [lastAlerts, setLastAlerts] = useState({});
+          
+          // Backtesting state
+          const [backtestCoin, setBacktestCoin] = useState('BTC');
+          const [backtestTimeframe, setBacktestTimeframe] = useState('1h');
+          const [backtestDays, setBacktestDays] = useState(30);
+          const [backtestResults, setBacktestResults] = useState(null);
+          const [backtestLoading, setBacktestLoading] = useState(false);
+          const [backtestTrades, setBacktestTrades] = useState([]);
+          
+          const chartRef = useRef(null);
+          const chartInstance = useRef(null);
+          const updateIntervalRef = useRef(null);
+
+          // Available coins and timeframes
+          const allCoins = [
+            { symbol: 'BTC', name: 'Bitcoin', pair: 'BTCUSDT' },
+            { symbol: 'ETH', name: 'Ethereum', pair: 'ETHUSDT' },
+            { symbol: 'BNB', name: 'Binance Coin', pair: 'BNBUSDT' },
+            { symbol: 'SOL', name: 'Solana', pair: 'SOLUSDT' },
+            { symbol: 'XRP', name: 'Ripple', pair: 'XRPUSDT' },
+            { symbol: 'ADA', name: 'Cardano', pair: 'ADAUSDT' },
+            { symbol: 'AVAX', name: 'Avalanche', pair: 'AVAXUSDT' },
+            { symbol: 'DOGE', name: 'Dogecoin', pair: 'DOGEUSDT' },
+            { symbol: 'DOT', name: 'Polkadot', pair: 'DOTUSDT' },
+            { symbol: 'MATIC', name: 'Polygon', pair: 'MATICUSDT' },
+            { symbol: 'LINK', name: 'Chainlink', pair: 'LINKUSDT' },
+            { symbol: 'UNI', name: 'Uniswap', pair: 'UNIUSDT' }
+          ];
+
+          const allTimeframes = [
+            { value: '1m', label: '1m', interval: '1m', limit: 200 },
+            { value: '5m', label: '5m', interval: '5m', limit: 200 },
+            { value: '15m', label: '15m', interval: '15m', limit: 200 },
+            { value: '1h', label: '1h', interval: '1h', limit: 200 },
+            { value: '4h', label: '4h', interval: '4h', limit: 200 },
+            { value: '1d', label: '1d', interval: '1d', limit: 200 }
+          ];
+
+          // Technical Indicators
+          const calculateRSI = (prices, period = 14) => {
+            if (prices.length < period + 1) return null;
+            let gains = 0, losses = 0;
+            for (let i = prices.length - period; i < prices.length; i++) {
+              const change = prices[i] - prices[i - 1];
+              if (change > 0) gains += change;
+              else losses += Math.abs(change);
+            }
+            const avgGain = gains / period;
+            const avgLoss = losses / period;
+            if (avgLoss === 0) return 100;
+            return 100 - (100 / (1 + avgGain / avgLoss));
+          };
+
+          const calculateStochRSI = (prices, period = 14) => {
+            if (prices.length < period * 2) return null;
+            const rsiValues = [];
+            for (let i = period; i < prices.length; i++) {
+              const rsi = calculateRSI(prices.slice(0, i + 1), period);
+              if (rsi !== null) rsiValues.push(rsi);
+            }
+            if (rsiValues.length < period) return null;
+            const recentRSI = rsiValues.slice(-period);
+            const minRSI = Math.min(...recentRSI);
+            const maxRSI = Math.max(...recentRSI);
+            const currentRSI = rsiValues[rsiValues.length - 1];
+            if (maxRSI === minRSI) return 50;
+            return ((currentRSI - minRSI) / (maxRSI - minRSI)) * 100;
+          };
+
+          const calculateSMA = (prices, period) => {
+            if (prices.length < period) return null;
+            return prices.slice(-period).reduce((a, b) => a + b, 0) / period;
+          };
+
+          const calculateEMA = (prices, period) => {
+            const k = 2 / (period + 1);
+            let ema = prices[0];
+            for (let i = 1; i < prices.length; i++) {
+              ema = prices[i] * k + ema * (1 - k);
+            }
+            return ema;
+          };
+
+          const calculateMACD = (prices) => {
+            if (prices.length < 26) return null;
+            return calculateEMA(prices.slice(-12), 12) - calculateEMA(prices.slice(-26), 26);
+          };
+
+          const calculateBollingerBands = (prices, period = 20, multiplier = 2) => {
+            if (prices.length < period) return null;
+            const sma = calculateSMA(prices, period);
+            const slice = prices.slice(-period);
+            const variance = slice.reduce((sum, price) => sum + Math.pow(price - sma, 2), 0) / period;
+            const stdDev = Math.sqrt(variance);
+            return {
+              upper: sma + (stdDev * multiplier),
+              middle: sma,
+              lower: sma - (stdDev * multiplier),
+              stdDev
+            };
+          };
+
+          // Calculate ADX (Average Directional Index)
+          const calculateADX = (klines, period = 14) => {
+            if (!klines || klines.length < period + 1) return null;
+            
+            // Extract OHLC data
+            const highs = klines.map(k => parseFloat(k[2]));
+            const lows = klines.map(k => parseFloat(k[3]));
+            const closes = klines.map(k => parseFloat(k[4]));
+            
+            // Calculate True Range (TR)
+            const tr = [];
+            for (let i = 1; i < closes.length; i++) {
+              const high = highs[i];
+              const low = lows[i];
+              const prevClose = closes[i - 1];
+              
+              const tr1 = high - low;
+              const tr2 = Math.abs(high - prevClose);
+              const tr3 = Math.abs(low - prevClose);
+              
+              tr.push(Math.max(tr1, tr2, tr3));
+            }
+            
+            // Calculate +DM and -DM (Directional Movement)
+            const plusDM = [];
+            const minusDM = [];
+            
+            for (let i = 1; i < highs.length; i++) {
+              const upMove = highs[i] - highs[i - 1];
+              const downMove = lows[i - 1] - lows[i];
+              
+              if (upMove > downMove && upMove > 0) {
+                plusDM.push(upMove);
+                minusDM.push(0);
+              } else if (downMove > upMove && downMove > 0) {
+                plusDM.push(0);
+                minusDM.push(downMove);
+              } else {
+                plusDM.push(0);
+                minusDM.push(0);
+              }
+            }
+            
+            // Calculate smoothed values using Wilder's smoothing (EMA-like)
+            const smoothTR = tr.slice(-period).reduce((a, b) => a + b, 0) / period;
+            const smoothPlusDM = plusDM.slice(-period).reduce((a, b) => a + b, 0) / period;
+            const smoothMinusDM = minusDM.slice(-period).reduce((a, b) => a + b, 0) / period;
+            
+            // Calculate +DI and -DI (Directional Indicators)
+            const plusDI = (smoothPlusDM / smoothTR) * 100;
+            const minusDI = (smoothMinusDM / smoothTR) * 100;
+            
+            // Calculate DX (Directional Index)
+            const diDiff = Math.abs(plusDI - minusDI);
+            const diSum = plusDI + minusDI;
+            const dx = diSum === 0 ? 0 : (diDiff / diSum) * 100;
+            
+            // ADX is smoothed DX - we'll use simple approach for current value
+            // In production, this should be smoothed over multiple periods
+            const adx = dx; // Simplified - ideally smooth over 14 periods
+            
+            // Determine trend
+            let trend = 'NEUTRAL';
+            let strength = 'WEAK';
+            
+            if (plusDI > minusDI) {
+              trend = 'BULLISH';
+            } else if (minusDI > plusDI) {
+              trend = 'BEARISH';
+            }
+            
+            if (adx > 50) {
+              strength = 'VERY_STRONG';
+            } else if (adx > 30) {
+              strength = 'STRONG';
+            } else if (adx > 20) {
+              strength = 'MODERATE';
+            } else {
+              strength = 'WEAK';
+            }
+            
+            return {
+              adx: parseFloat(adx.toFixed(2)),
+              plusDI: parseFloat(plusDI.toFixed(2)),
+              minusDI: parseFloat(minusDI.toFixed(2)),
+              trend,
+              strength,
+              trendScore: plusDI - minusDI // Positive = bullish, Negative = bearish
+            };
+          };
+
+          const calculateVolumeProfile = (volumes) => {
+            if (!volumes || volumes.length === 0) return null;
+            const recent = volumes.slice(-20);
+            const avg = recent.reduce((a, b) => a + b, 0) / recent.length;
+            const current = volumes[volumes.length - 1];
+            const ratio = current / avg;
+            return {
+              current,
+              average: avg,
+              ratio,
+              signal: ratio > 1.5 ? 'vysoký' : ratio < 0.5 ? 'nízky' : 'normálny'
+            };
+          };
+
+          // Support & Resistance Detection
+          const findPivotPoints = (prices, window = 5) => {
+            const pivots = { supports: [], resistances: [] };
+            
+            for (let i = window; i < prices.length - window; i++) {
+              let isHigh = true;
+              let isLow = true;
+              
+              for (let j = i - window; j <= i + window; j++) {
+                if (j === i) continue;
+                if (prices[j] >= prices[i]) isHigh = false;
+                if (prices[j] <= prices[i]) isLow = false;
+              }
+              
+              if (isHigh) {
+                pivots.resistances.push({ price: prices[i], index: i, strength: 1 });
+              }
+              if (isLow) {
+                pivots.supports.push({ price: prices[i], index: i, strength: 1 });
+              }
+            }
+            
+            return pivots;
+          };
+
+          const clusterSupportResistance = (levels, threshold = 0.02) => {
+            if (levels.length === 0) return [];
+            
+            // Sort by price
+            const sorted = [...levels].sort((a, b) => a.price - b.price);
+            const clusters = [];
+            let currentCluster = [sorted[0]];
+            
+            for (let i = 1; i < sorted.length; i++) {
+              const priceDiff = Math.abs(sorted[i].price - currentCluster[0].price) / currentCluster[0].price;
+              
+              if (priceDiff <= threshold) {
+                currentCluster.push(sorted[i]);
+              } else {
+                // Finalize cluster
+                const avgPrice = currentCluster.reduce((sum, l) => sum + l.price, 0) / currentCluster.length;
+                const strength = currentCluster.length;
+                clusters.push({ price: avgPrice, strength, touches: strength });
+                currentCluster = [sorted[i]];
+              }
+            }
+            
+            // Add last cluster
+            if (currentCluster.length > 0) {
+              const avgPrice = currentCluster.reduce((sum, l) => sum + l.price, 0) / currentCluster.length;
+              const strength = currentCluster.length;
+              clusters.push({ price: avgPrice, strength, touches: strength });
+            }
+            
+            // Sort by strength (most important first)
+            return clusters.sort((a, b) => b.strength - a.strength);
+          };
+
+          const findPsychologicalLevels = (currentPrice) => {
+            const levels = [];
+            const magnitude = Math.pow(10, Math.floor(Math.log10(currentPrice)));
+            
+            // Round numbers based on price magnitude
+            const roundTo = magnitude >= 1000 ? 1000 : magnitude >= 100 ? 100 : magnitude >= 10 ? 10 : 1;
+            
+            for (let mult = 1; mult <= 20; mult++) {
+              const level = roundTo * mult;
+              if (level > currentPrice * 0.8 && level < currentPrice * 1.2) {
+                levels.push({ 
+                  price: level, 
+                  type: 'psychological',
+                  strength: 2 
+                });
+              }
+            }
+            
+            return levels;
+          };
+
+          const calculateSupportResistance = (prices, volumes, currentPrice) => {
+            // Find pivot points
+            const pivots = findPivotPoints(prices, 5);
+            
+            // Cluster nearby levels
+            const supports = clusterSupportResistance(pivots.supports);
+            const resistances = clusterSupportResistance(pivots.resistances);
+            
+            // Add psychological levels
+            const psychLevels = findPsychologicalLevels(currentPrice);
+            psychLevels.forEach(level => {
+              if (level.price > currentPrice) {
+                resistances.push(level);
+              } else {
+                supports.push(level);
+              }
+            });
+            
+            // Add EMA 200 as dynamic S/R
+            const ema200 = calculateEMA(prices.slice(-200), 200);
+            if (ema200) {
+              if (ema200 > currentPrice) {
+                resistances.push({ price: ema200, type: 'EMA200', strength: 3, touches: 'Dynamic' });
+              } else {
+                supports.push({ price: ema200, type: 'EMA200', strength: 3, touches: 'Dynamic' });
+              }
+            }
+            
+            // Sort by proximity to current price
+            const sortedSupports = supports
+              .filter(s => s.price < currentPrice)
+              .sort((a, b) => b.price - a.price)
+              .slice(0, 3);
+            
+            const sortedResistances = resistances
+              .filter(r => r.price > currentPrice)
+              .sort((a, b) => a.price - b.price)
+              .slice(0, 3);
+            
+            // Find nearest levels
+            const nearestSupport = sortedSupports[0] || null;
+            const nearestResistance = sortedResistances[0] || null;
+            
+            // Calculate distance percentages
+            const supportDistance = nearestSupport 
+              ? ((currentPrice - nearestSupport.price) / currentPrice) * 100 
+              : null;
+            const resistanceDistance = nearestResistance 
+              ? ((nearestResistance.price - currentPrice) / currentPrice) * 100 
+              : null;
+            
+            // Determine if in "no trade zone" (too close to S/R)
+            const tooCloseToSupport = supportDistance !== null && supportDistance < 0.5;
+            const tooCloseToResistance = resistanceDistance !== null && resistanceDistance < 0.5;
+            
+            return {
+              supports: sortedSupports,
+              resistances: sortedResistances,
+              nearestSupport,
+              nearestResistance,
+              supportDistance,
+              resistanceDistance,
+              tooCloseToSupport,
+              tooCloseToResistance,
+              inNoTradeZone: tooCloseToSupport || tooCloseToResistance
+            };
+          };
+
+          const analyzeSRForSignal = (signal, srData, currentPrice) => {
+            if (!srData || signal.type === 'NEUTRAL') return { allowed: true, reason: 'No S/R conflict' };
+            
+            const { nearestSupport, nearestResistance, supportDistance, resistanceDistance } = srData;
+            
+            if (signal.type === 'LONG') {
+              // Check if too close to resistance
+              if (resistanceDistance !== null && resistanceDistance < 2) {
+                return { 
+                  allowed: false, 
+                  reason: `❌ Príliš blízko resistance ($${nearestResistance.price.toFixed(2)}, +${resistanceDistance.toFixed(2)}%)`,
+                  risk: 'HIGH'
+                };
+              }
+              
+              // Check if near support (good for LONG)
+              if (supportDistance !== null && supportDistance < 1) {
+                return { 
+                  allowed: true, 
+                  reason: `✅ Pri support leveli ($${nearestSupport.price.toFixed(2)}, -${supportDistance.toFixed(2)}%) - DOBRÝ vstup!`,
+                  risk: 'LOW',
+                  quality: 'EXCELLENT'
+                };
+              }
+              
+              // Calculate risk/reward
+              if (nearestSupport && nearestResistance) {
+                const risk = supportDistance;
+                const reward = resistanceDistance;
+                const riskReward = reward / risk;
+                
+                if (riskReward >= 2) {
+                  return {
+                    allowed: true,
+                    reason: `✅ Dobrý R/R ratio: 1:${riskReward.toFixed(1)}`,
+                    risk: 'LOW',
+                    riskReward
+                  };
+                } else if (riskReward < 1) {
+                  return {
+                    allowed: false,
+                    reason: `❌ Zlý R/R ratio: 1:${riskReward.toFixed(1)} (risk > reward)`,
+                    risk: 'HIGH'
+                  };
+                }
+              }
+            } else if (signal.type === 'SHORT') {
+              // Check if too close to support
+              if (supportDistance !== null && supportDistance < 2) {
+                return { 
+                  allowed: false, 
+                  reason: `❌ Príliš blízko support ($${nearestSupport.price.toFixed(2)}, -${supportDistance.toFixed(2)}%)`,
+                  risk: 'HIGH'
+                };
+              }
+              
+              // Check if near resistance (good for SHORT)
+              if (resistanceDistance !== null && resistanceDistance < 1) {
+                return { 
+                  allowed: true, 
+                  reason: `✅ Pri resistance leveli ($${nearestResistance.price.toFixed(2)}, +${resistanceDistance.toFixed(2)}%) - DOBRÝ vstup!`,
+                  risk: 'LOW',
+                  quality: 'EXCELLENT'
+                };
+              }
+              
+              // Calculate risk/reward
+              if (nearestSupport && nearestResistance) {
+                const risk = resistanceDistance;
+                const reward = supportDistance;
+                const riskReward = reward / risk;
+                
+                if (riskReward >= 2) {
+                  return {
+                    allowed: true,
+                    reason: `✅ Dobrý R/R ratio: 1:${riskReward.toFixed(1)}`,
+                    risk: 'LOW',
+                    riskReward
+                  };
+                } else if (riskReward < 1) {
+                  return {
+                    allowed: false,
+                    reason: `❌ Zlý R/R ratio: 1:${riskReward.toFixed(1)} (risk > reward)`,
+                    risk: 'HIGH'
+                  };
+                }
+              }
+            }
+            
+            return { allowed: true, reason: 'OK', risk: 'MEDIUM' };
+          };
+
+          // Calculate Stop Loss and Take Profit levels
+          const calculateSLTP = (currentPrice, signal, srData = null) => {
+            if (!signal || signal.type === 'NEUTRAL') return null;
+            
+            let stopLoss, takeProfit1, takeProfit2, takeProfit3;
+            
+            if (signal.type === 'LONG') {
+              // Use nearest support as better SL if available
+              if (srData && srData.nearestSupport && srData.supportDistance < 1) {
+                stopLoss = srData.nearestSupport.price * 0.998; // Slightly below support
+              } else {
+                stopLoss = currentPrice * 0.97; // Default 3%
+              }
+              
+              const risk = currentPrice - stopLoss;
+              takeProfit1 = currentPrice + (risk * 1);   // 1:1
+              takeProfit2 = currentPrice + (risk * 2);   // 1:2
+              takeProfit3 = currentPrice + (risk * 3);   // 1:3
+              
+              // Adjust TP if near resistance
+              if (srData && srData.nearestResistance) {
+                const resPrice = srData.nearestResistance.price;
+                if (takeProfit1 > resPrice) takeProfit1 = resPrice * 0.995; // Just before resistance
+                if (takeProfit2 > resPrice) takeProfit2 = resPrice * 1.002; // Breakout target
+              }
+              
+            } else { // SHORT
+              // Use nearest resistance as better SL if available
+              if (srData && srData.nearestResistance && srData.resistanceDistance < 1) {
+                stopLoss = srData.nearestResistance.price * 1.002; // Slightly above resistance
+              } else {
+                stopLoss = currentPrice * 1.03; // Default 3%
+              }
+              
+              const risk = stopLoss - currentPrice;
+              takeProfit1 = currentPrice - (risk * 1);   // 1:1
+              takeProfit2 = currentPrice - (risk * 2);   // 1:2
+              takeProfit3 = currentPrice - (risk * 3);   // 1:3
+              
+              // Adjust TP if near support
+              if (srData && srData.nearestSupport) {
+                const supPrice = srData.nearestSupport.price;
+                if (takeProfit1 < supPrice) takeProfit1 = supPrice * 1.005; // Just before support
+                if (takeProfit2 < supPrice) takeProfit2 = supPrice * 0.998; // Breakout target
+              }
+            }
+            
+            const riskPercent = Math.abs((stopLoss - currentPrice) / currentPrice * 100);
+            const reward1Percent = Math.abs((takeProfit1 - currentPrice) / currentPrice * 100);
+            const reward2Percent = Math.abs((takeProfit2 - currentPrice) / currentPrice * 100);
+            const reward3Percent = Math.abs((takeProfit3 - currentPrice) / currentPrice * 100);
+            
+            return {
+              stopLoss,
+              takeProfit1,
+              takeProfit2,
+              takeProfit3,
+              riskPercent,
+              rewardPercent: [reward1Percent, reward2Percent, reward3Percent],
+              riskReward: [
+                reward1Percent / riskPercent,
+                reward2Percent / riskPercent,
+                reward3Percent / riskPercent
+              ]
+            };
+          };
+
+          // Generate trading signal with S/R analysis and ADX
+          const generateSignal = (prices, volumes, klines = null) => {
+            const rsi = calculateRSI(prices);
+            const stochRSI = calculateStochRSI(prices);
+            const macd = calculateMACD(prices);
+            const sma20 = calculateSMA(prices, 20);
+            const sma50 = calculateSMA(prices, 50);
+            const sma200 = calculateSMA(prices, 200);
+            const bb = calculateBollingerBands(prices);
+            const currentPrice = prices[prices.length - 1];
+            const volumeProfile = calculateVolumeProfile(volumes);
+            
+            // Calculate ADX if klines available
+            const adx = klines ? calculateADX(klines, 14) : null;
+            
+            // Calculate Support/Resistance
+            const srData = calculateSupportResistance(prices, volumes, currentPrice);
+            
+            let longScore = 0, shortScore = 0, signals = [];
+
+            // RSI
+            if (rsi < 25) {
+              longScore += 3;
+              signals.push('RSI silne prepredaný');
+            } else if (rsi < 35) {
+              longScore += 2;
+              signals.push('RSI prepredaný');
+            } else if (rsi > 75) {
+              shortScore += 3;
+              signals.push('RSI silne prekúpený');
+            } else if (rsi > 65) {
+              shortScore += 2;
+              signals.push('RSI prekúpený');
+            }
+
+            // StochRSI
+            if (stochRSI !== null) {
+              if (stochRSI < 20) {
+                longScore += 2.5;
+                signals.push('StochRSI prepredaný');
+              } else if (stochRSI > 80) {
+                shortScore += 2.5;
+                signals.push('StochRSI prekúpený');
+              }
+            }
+
+            // MACD
+            if (macd > 0) {
+              longScore += 1.5;
+              signals.push('MACD bullish');
+            } else {
+              shortScore += 1.5;
+              signals.push('MACD bearish');
+            }
+
+            // ADX Analysis
+            if (adx) {
+              if (adx.strength === 'STRONG' || adx.strength === 'VERY_STRONG') {
+                if (adx.trend === 'BULLISH') {
+                  longScore += 2.5;
+                  signals.push(`ADX ${adx.adx} - Silný bullish trend`);
+                } else if (adx.trend === 'BEARISH') {
+                  shortScore += 2.5;
+                  signals.push(`ADX ${adx.adx} - Silný bearish trend`);
+                }
+                
+                // Extra bonus for very strong trends
+                if (adx.strength === 'VERY_STRONG') {
+                  if (adx.trend === 'BULLISH') {
+                    longScore += 1;
+                  } else {
+                    shortScore += 1;
+                  }
+                }
+              } else if (adx.strength === 'WEAK' || adx.strength === 'MODERATE') {
+                // Penalize weak trends
+                if (adx.adx < 20) {
+                  longScore -= 0.5;
+                  shortScore -= 0.5;
+                  signals.push('ADX slabý - nejasný trend');
+                }
+              }
+            }
+
+            // MA Trend
+            if (sma200) {
+              if (currentPrice > sma20 && sma20 > sma50 && sma50 > sma200) {
+                longScore += 4;
+                signals.push('Silný bullish trend');
+              } else if (currentPrice < sma20 && sma20 < sma50 && sma50 < sma200) {
+                shortScore += 4;
+                signals.push('Silný bearish trend');
+              }
+            }
+            
+            if (currentPrice > sma20 && sma20 > sma50) {
+              longScore += 2;
+              signals.push('Golden Cross');
+            } else if (currentPrice < sma20 && sma20 < sma50) {
+              shortScore += 2;
+              signals.push('Death Cross');
+            }
+
+            // Bollinger Bands
+            if (bb) {
+              const bbPercent = (currentPrice - bb.lower) / (bb.upper - bb.lower);
+              if (currentPrice <= bb.lower) {
+                longScore += 3;
+                signals.push('Cena na dolnom BB');
+              } else if (bbPercent < 0.2) {
+                longScore += 2;
+              }
+              if (currentPrice >= bb.upper) {
+                shortScore += 3;
+                signals.push('Cena na hornom BB');
+              } else if (bbPercent > 0.8) {
+                shortScore += 2;
+              }
+            }
+
+            // Support/Resistance bonus
+            if (srData.nearestSupport && srData.supportDistance < 1) {
+              longScore += 2;
+              signals.push('🟢 Pri support leveli');
+            }
+            if (srData.nearestResistance && srData.resistanceDistance < 1) {
+              shortScore += 2;
+              signals.push('🔴 Pri resistance leveli');
+            }
+
+            // Volume
+            if (volumeProfile && volumeProfile.signal === 'vysoký') {
+              const priceChange = ((prices[prices.length - 1] - prices[prices.length - 2]) / prices[prices.length - 2]) * 100;
+              if (priceChange > 0) {
+                longScore += 1.5;
+                signals.push('Vysoký volume pri raste');
+              } else {
+                shortScore += 1.5;
+                signals.push('Vysoký volume pri poklese');
+              }
+            }
+
+            const totalScore = longScore + shortScore;
+            const strength = Math.abs(longScore - shortScore) / Math.max(totalScore, 1) * 100;
+            
+            let type, confidence;
+            if (longScore > shortScore + 3) {
+              type = 'LONG';
+              confidence = longScore > shortScore + 6 ? 'Veľmi vysoká' : longScore > shortScore + 4 ? 'Vysoká' : 'Stredná';
+            } else if (shortScore > longScore + 3) {
+              type = 'SHORT';
+              confidence = shortScore > longScore + 6 ? 'Veľmi vysoká' : shortScore > longScore + 4 ? 'Vysoká' : 'Stredná';
+            } else {
+              type = 'NEUTRAL';
+              confidence = 'Nízka';
+            }
+
+            // Analyze S/R for this signal
+            const srAnalysis = analyzeSRForSignal({ type, confidence }, srData, currentPrice);
+
+            return {
+              type,
+              strength: Math.round(strength),
+              confidence,
+              longScore: longScore.toFixed(1),
+              shortScore: shortScore.toFixed(1),
+              signals: signals.slice(0, 6),
+              indicators: {
+                rsi: rsi?.toFixed(2),
+                stochRSI: stochRSI?.toFixed(2),
+                macd: macd?.toFixed(2),
+                sma20: sma20?.toFixed(2),
+                sma50: sma50?.toFixed(2),
+                sma200: sma200?.toFixed(2),
+                bbUpper: bb?.upper.toFixed(2),
+                bbLower: bb?.lower.toFixed(2),
+                adx: adx?.adx,
+                adxPlusDI: adx?.plusDI,
+                adxMinusDI: adx?.minusDI,
+                adxTrend: adx?.trend,
+                adxStrength: adx?.strength
+              },
+              volumeProfile,
+              srData,
+              srAnalysis,
+              adx
+            };
+          };
+
+          // Fetch data from Binance
+          const fetchCoinData = async (coinSymbol, timeframe) => {
+            try {
+              const coin = allCoins.find(c => c.symbol === coinSymbol);
+              const tf = allTimeframes.find(t => t.value === timeframe);
+              
+              const response = await fetch(
+                `https://api.binance.com/api/v3/klines?symbol=${coin.pair}&interval=${tf.interval}&limit=${tf.limit}`
+              );
+              const klines = await response.json();
+              
+              if (klines && klines.length > 0) {
+                const prices = klines.map(k => parseFloat(k[4]));
+                const volumes = klines.map(k => parseFloat(k[5]));
+                const currentPrice = prices[prices.length - 1];
+                
+                // Calculate price change
+                let priceChange = 0;
+                if (prices.length >= 2) {
+                  priceChange = ((currentPrice - prices[prices.length - 2]) / prices[prices.length - 2]) * 100;
+                }
+                
+                const signal = generateSignal(prices, volumes, klines);
+                
+                return {
+                  coin: coinSymbol,
+                  timeframe,
+                  price: currentPrice,
+                  priceChange,
+                  signal,
+                  klines,
+                  timestamp: Date.now()
+                };
+              }
+            } catch (error) {
+              console.error(`Error fetching ${coinSymbol}/${timeframe}:`, error);
+              return null;
+            }
+          };
+
+          // Fetch watchlist data
+          const fetchWatchlistData = async () => {
+            setLoading(true);
+            const newData = {};
+            
+            for (const coin of watchedCoins) {
+              newData[coin] = {};
+              for (const tf of watchedTimeframes) {
+                const data = await fetchCoinData(coin, tf);
+                if (data) {
+                  newData[coin][tf] = data;
+                }
+              }
+            }
+            
+            setWatchlistData(newData);
+            setLastUpdate(new Date());
+            setLoading(false);
+            
+            // Check for confluence and send alerts
+            checkConfluenceAndAlert(newData);
+          };
+
+          // Check confluence and send Telegram alerts with S/R filtering
+          const checkConfluenceAndAlert = (data) => {
+            if (!alertsEnabled || !telegramToken || !telegramChatId) return;
+
+            for (const coin of watchedCoins) {
+              const coinData = data[coin];
+              if (!coinData) continue;
+
+              const signals = Object.values(coinData).map(d => d.signal);
+              const longCount = signals.filter(s => s.type === 'LONG' && (s.confidence === 'Vysoká' || s.confidence === 'Veľmi vysoká')).length;
+              const shortCount = signals.filter(s => s.type === 'SHORT' && (s.confidence === 'Vysoká' || s.confidence === 'Veľmi vysoká')).length;
+              
+              let shouldAlert = false;
+              let alertType = '';
+              
+              if (alertMode === 'all') {
+                shouldAlert = longCount > 0 || shortCount > 0;
+                alertType = longCount > shortCount ? 'LONG' : 'SHORT';
+              } else if (alertMode === 'confluence') {
+                shouldAlert = longCount >= 2 || shortCount >= 2;
+                alertType = longCount > shortCount ? 'LONG' : 'SHORT';
+              } else if (alertMode === 'perfect') {
+                shouldAlert = longCount === watchedTimeframes.length || shortCount === watchedTimeframes.length;
+                alertType = longCount > shortCount ? 'LONG' : 'SHORT';
+              }
+
+              if (shouldAlert) {
+                // Check S/R analysis from the strongest timeframe signal
+                const strongestTfData = Object.values(coinData)
+                  .filter(d => d.signal.type === alertType && (d.signal.confidence === 'Vysoká' || d.signal.confidence === 'Veľmi vysoká'))
+                  .sort((a, b) => b.signal.strength - a.signal.strength)[0];
+                
+                if (strongestTfData && strongestTfData.signal.srAnalysis) {
+                  // Check if S/R allows this trade
+                  if (!strongestTfData.signal.srAnalysis.allowed) {
+                    console.log(`Alert BLOCKED for ${coin} ${alertType}: ${strongestTfData.signal.srAnalysis.reason}`);
+                    continue; // Skip this alert - S/R says NO
+                  }
+                }
+                
+                const alertKey = `${coin}-${alertType}`;
+                const lastAlertTime = lastAlerts[alertKey];
+                
+                // Only send alert if more than 15 minutes passed
+                if (!lastAlertTime || (Date.now() - lastAlertTime > 15 * 60 * 1000)) {
+                  sendConfluenceAlert(coin, coinData, alertType, longCount, shortCount);
+                  setLastAlerts(prev => ({ ...prev, [alertKey]: Date.now() }));
+                }
+              }
+            }
+          };
+
+          // Send confluence alert with S/R info
+          const sendConfluenceAlert = async (coin, coinData, type, longCount, shortCount) => {
+            const emoji = type === 'LONG' ? '🟢' : '🔴';
+            const tfList = Object.keys(coinData).join(', ');
+            const price = Object.values(coinData)[0]?.price || 0;
+            
+            // Get S/R data from strongest signal
+            const strongestTfData = Object.values(coinData)
+              .filter(d => d.signal.type === type && (d.signal.confidence === 'Vysoká' || d.signal.confidence === 'Veľmi vysoká'))
+              .sort((a, b) => b.signal.strength - a.signal.strength)[0];
+            
+            const srData = strongestTfData?.signal.srData;
+            const srAnalysis = strongestTfData?.signal.srAnalysis;
+            const adx = strongestTfData?.signal.adx;
+            
+            let message = `${emoji} *${type} CONFLUENCE* ${emoji}\n\n`;
+            message += `💰 *${coin}*: $${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}\n\n`;
+            message += `📊 *Multi-Timeframe Analýza:*\n`;
+            
+            for (const [tf, data] of Object.entries(coinData)) {
+              const sig = data.signal;
+              const icon = sig.type === 'LONG' ? '🟢' : sig.type === 'SHORT' ? '🔴' : '⚪';
+              message += `${icon} ${tf}: ${sig.type} (${sig.confidence})\n`;
+            }
+            
+            message += `\n💪 *Confluence:* ${type === 'LONG' ? longCount : shortCount}/${watchedTimeframes.length} timeframes\n`;
+            
+            // Add ADX Analysis
+            if (adx) {
+              message += `\n📈 *ADX ANALÝZA:*\n`;
+              message += `• ADX: ${adx.adx} (${
+                adx.strength === 'VERY_STRONG' ? '🔥 Veľmi silný' :
+                adx.strength === 'STRONG' ? '💪 Silný' :
+                adx.strength === 'MODERATE' ? '📊 Stredný' :
+                '😴 Slabý'
+              })\n`;
+              message += `• +DI: ${adx.plusDI}, -DI: ${adx.minusDI}\n`;
+              message += `• Trend: ${adx.trend === 'BULLISH' ? '↗️ Bulls' : adx.trend === 'BEARISH' ? '↘️ Bears' : '↔️ Neutral'}\n`;
+            }
+            
+            // Add S/R Analysis
+            if (srData && srAnalysis) {
+              message += `\n🎯 *SUPPORT/RESISTANCE ANALÝZA:*\n`;
+              message += `${srAnalysis.reason}\n`;
+              
+              if (srData.nearestSupport) {
+                const strength = srData.nearestSupport.strength >= 3 ? 'Strong' : 'Medium';
+                const touches = srData.nearestSupport.touches;
+                message += `🟢 Support: $${srData.nearestSupport.price.toFixed(2)} (${strength}`;
+                if (typeof touches === 'number') message += `, ${touches}x`;
+                message += `)\n`;
+              }
+              
+              if (srData.nearestResistance) {
+                const strength = srData.nearestResistance.strength >= 3 ? 'Strong' : 'Medium';
+                const touches = srData.nearestResistance.touches;
+                message += `🔴 Resistance: $${srData.nearestResistance.price.toFixed(2)} (${strength}`;
+                if (typeof touches === 'number') message += `, ${touches}x`;
+                message += `)\n`;
+              }
+              
+              if (srAnalysis.riskReward) {
+                message += `\n📈 *Risk/Reward:* 1:${srAnalysis.riskReward.toFixed(1)}\n`;
+              }
+              
+              if (srAnalysis.quality === 'EXCELLENT') {
+                message += `\n⭐ *EXCELENTNÝ VSTUP!*`;
+              } else if (srAnalysis.risk === 'LOW') {
+                message += `\n✅ *Nízke riziko*`;
+              }
+            }
+            
+            message += `\n\n🔥 *Silné potvrdenie trendu!*`;
+
+            try {
+              await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  chat_id: telegramChatId,
+                  text: message,
+                  parse_mode: 'Markdown'
+                })
+              });
+            } catch (error) {
+              console.error('Telegram alert failed:', error);
+            }
+          };
+
+          // Fetch detail view data
+          const fetchDetailData = async () => {
+            setLoading(true);
+            const data = await fetchCoinData(selectedCoin, selectedTimeframe);
+            
+            if (data) {
+              const coin = allCoins.find(c => c.symbol === selectedCoin);
+              const tf = allTimeframes.find(t => t.value === selectedTimeframe);
+              
+              // Create chart data
+              const klines = data.klines;
+              const displayPoints = Math.min(100, klines.length);
+              const chartData = klines.slice(-displayPoints).map((k, i) => {
+                const prices = klines.slice(0, klines.length - displayPoints + i + 1).map(k => parseFloat(k[4]));
+                const bb = calculateBollingerBands(prices, 20, 2);
+                const sma20 = calculateSMA(prices, 20);
+                
+                const date = new Date(k[0]);
+                let dateLabel;
+                if (selectedTimeframe === '1m' || selectedTimeframe === '5m' || selectedTimeframe === '15m') {
+                  dateLabel = date.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' });
+                } else if (selectedTimeframe === '1h' || selectedTimeframe === '4h') {
+                  dateLabel = date.toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit' }) + ' ' +
+                             date.toLocaleTimeString('sk-SK', { hour: '2-digit' });
+                } else {
+                  dateLabel = date.toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit' });
+                }
+                
+                return {
+                  date: dateLabel,
+                  price: parseFloat(k[4]),
+                  sma20: i >= 19 ? parseFloat(sma20?.toFixed(2)) : null,
+                  bbUpper: bb ? parseFloat(bb.upper.toFixed(2)) : null,
+                  bbLower: bb ? parseFloat(bb.lower.toFixed(2)) : null
+                };
+              });
+              
+              // Calculate SL/TP levels
+              const sltp = calculateSLTP(data.price, data.signal, data.signal.srData);
+              
+              setDetailData({
+                ...data,
+                chartData,
+                sltp
+              });
+              
+              setTimeout(() => createChart(chartData, data.signal.srData, sltp), 100);
+            }
+            
+            setLoading(false);
+          };
+
+          // Create chart with S/R levels and SL/TP
+          const createChart = (chartData, srData = null, sltp = null) => {
+            if (!chartRef.current) return;
+            
+            if (chartInstance.current) {
+              chartInstance.current.destroy();
+            }
+
+            const ctx = chartRef.current.getContext('2d');
+            
+            const datasets = [
+              {
+                label: 'Cena',
+                data: chartData.map(d => d.price),
+                borderColor: '#8b5cf6',
+                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                borderWidth: 3,
+                tension: 0.1,
+                fill: true,
+                order: 1
+              },
+              {
+                label: 'SMA 20',
+                data: chartData.map(d => d.sma20),
+                borderColor: '#10b981',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                tension: 0.1,
+                fill: false,
+                order: 2
+              },
+              {
+                label: 'BB Horný',
+                data: chartData.map(d => d.bbUpper),
+                borderColor: '#ef4444',
+                borderWidth: 1,
+                borderDash: [3, 3],
+                tension: 0.1,
+                fill: false,
+                order: 3
+              },
+              {
+                label: 'BB Dolný',
+                data: chartData.map(d => d.bbLower),
+                borderColor: '#3b82f6',
+                borderWidth: 1,
+                borderDash: [3, 3],
+                tension: 0.1,
+                fill: false,
+                order: 3
+              }
+            ];
+            
+            // Add S/R levels
+            if (srData) {
+              // Add Support levels
+              if (srData.supports && srData.supports.length > 0) {
+                srData.supports.forEach((support, idx) => {
+                  datasets.push({
+                    label: `Support ${idx + 1} ($${support.price.toFixed(0)})`,
+                    data: chartData.map(() => support.price),
+                    borderColor: '#22c55e',
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    borderWidth: support.strength >= 3 ? 2 : 1,
+                    borderDash: [10, 5],
+                    pointRadius: 0,
+                    tension: 0,
+                    fill: false,
+                    order: 4
+                  });
+                });
+              }
+              
+              // Add Resistance levels
+              if (srData.resistances && srData.resistances.length > 0) {
+                srData.resistances.forEach((resistance, idx) => {
+                  datasets.push({
+                    label: `Resistance ${idx + 1} ($${resistance.price.toFixed(0)})`,
+                    data: chartData.map(() => resistance.price),
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderWidth: resistance.strength >= 3 ? 2 : 1,
+                    borderDash: [10, 5],
+                    pointRadius: 0,
+                    tension: 0,
+                    fill: false,
+                    order: 4
+                  });
+                });
+              }
+            }
+            
+            // Add SL/TP levels
+            if (sltp) {
+              datasets.push({
+                label: `Stop Loss ($${sltp.stopLoss.toFixed(2)})`,
+                data: chartData.map(() => sltp.stopLoss),
+                borderColor: '#dc2626',
+                borderWidth: 2,
+                borderDash: [5, 2],
+                pointRadius: 0,
+                tension: 0,
+                fill: false,
+                order: 5
+              });
+              
+              datasets.push({
+                label: `TP1 ($${sltp.takeProfit1.toFixed(2)})`,
+                data: chartData.map(() => sltp.takeProfit1),
+                borderColor: '#16a34a',
+                borderWidth: 2,
+                borderDash: [5, 2],
+                pointRadius: 0,
+                tension: 0,
+                fill: false,
+                order: 5
+              });
+              
+              datasets.push({
+                label: `TP2 ($${sltp.takeProfit2.toFixed(2)})`,
+                data: chartData.map(() => sltp.takeProfit2),
+                borderColor: '#15803d',
+                borderWidth: 1,
+                borderDash: [5, 2],
+                pointRadius: 0,
+                tension: 0,
+                fill: false,
+                order: 5
+              });
+            }
+
+            chartInstance.current = new Chart(ctx, {
+              type: 'line',
+              data: {
+                labels: chartData.map(d => d.date),
+                datasets
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                  mode: 'index',
+                  intersect: false,
+                },
+                plugins: {
+                  legend: {
+                    labels: {
+                      color: '#fff',
+                      font: { size: 10 },
+                      filter: function(item) {
+                        // Show only important legends
+                        return !item.text.includes('TP2') && !item.text.includes('BB');
+                      }
+                    }
+                  },
+                  tooltip: {
+                    backgroundColor: '#1e293b',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: '#8b5cf6',
+                    borderWidth: 1
+                  }
+                },
+                scales: {
+                  y: {
+                    ticks: { 
+                      color: '#999',
+                      callback: function(value) {
+                        return '$' + value.toLocaleString();
+                      }
+                    },
+                    grid: { color: '#444' }
+                  },
+                  x: {
+                    ticks: { 
+                      color: '#999',
+                      maxRotation: 45,
+                      minRotation: 45
+                    },
+                    grid: { color: '#444' }
+                  }
+                }
+              }
+            });
+          };
+
+          // Auto-update watchlist
+          useEffect(() => {
+            if (view === 'watchlist') {
+              fetchWatchlistData();
+              
+              // Update interval based on smallest timeframe
+              const minTf = watchedTimeframes.includes('1m') ? 10000 : 
+                           watchedTimeframes.includes('5m') ? 30000 : 
+                           watchedTimeframes.includes('15m') ? 60000 : 300000;
+              
+              updateIntervalRef.current = setInterval(fetchWatchlistData, minTf);
+              
+              return () => {
+                if (updateIntervalRef.current) {
+                  clearInterval(updateIntervalRef.current);
+                }
+              };
+            }
+          }, [view, watchedCoins, watchedTimeframes]);
+
+          // Auto-update detail view
+          useEffect(() => {
+            if (view === 'detail') {
+              fetchDetailData();
+              
+              const updateInterval = selectedTimeframe === '1m' ? 10000 : 
+                                     selectedTimeframe === '5m' ? 30000 : 
+                                     selectedTimeframe === '15m' ? 60000 : 300000;
+              
+              updateIntervalRef.current = setInterval(fetchDetailData, updateInterval);
+              
+              return () => {
+                if (updateIntervalRef.current) {
+                  clearInterval(updateIntervalRef.current);
+                }
+                if (chartInstance.current) {
+                  chartInstance.current.destroy();
+                }
+              };
+            }
+          }, [view, selectedCoin, selectedTimeframe]);
+
+          // Save settings
+          const saveSettings = () => {
+            localStorage.setItem('telegramToken', telegramToken);
+            localStorage.setItem('telegramChatId', telegramChatId);
+            localStorage.setItem('alertsEnabled', alertsEnabled);
+            localStorage.setItem('watchedCoins', JSON.stringify(watchedCoins));
+            localStorage.setItem('watchedTimeframes', JSON.stringify(watchedTimeframes));
+            localStorage.setItem('alertMode', alertMode);
+            setShowSettings(false);
+            alert('Nastavenia uložené!');
+          };
+
+          const testTelegramAlert = async () => {
+            if (!telegramToken || !telegramChatId) {
+              alert('Vyplň Token a Chat ID!');
+              return;
+            }
+            try {
+              const response = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  chat_id: telegramChatId,
+                  text: '✅ Test z Crypto Analyzer Ultimate!\n\n🔥 Watchlist + Multi-TF monitoring aktívne!',
+                  parse_mode: 'Markdown'
+                })
+              });
+              if (response.ok) {
+                alert('✅ Test odoslaný!');
+              } else {
+                alert('❌ Chyba');
+              }
+            } catch (error) {
+              alert('❌ ' + error.message);
+            }
+          };
+
+          const toggleWatchCoin = (coinSymbol) => {
+            setWatchedCoins(prev => {
+              const newCoins = prev.includes(coinSymbol) 
+                ? prev.filter(c => c !== coinSymbol)
+                : [...prev, coinSymbol];
+              return newCoins.length > 0 ? newCoins : prev;
+            });
+          };
+
+          const toggleWatchTimeframe = (tf) => {
+            setWatchedTimeframes(prev => {
+              const newTfs = prev.includes(tf) 
+                ? prev.filter(t => t !== tf)
+                : [...prev, tf];
+              return newTfs.length > 0 ? newTfs : prev;
+            });
+          };
+
+          // Backtesting Engine
+          const runBacktest = async () => {
+            setBacktestLoading(true);
+            setBacktestResults(null);
+            setBacktestTrades([]);
+            
+            try {
+              const coin = allCoins.find(c => c.symbol === backtestCoin);
+              const tf = allTimeframes.find(t => t.value === backtestTimeframe);
+              
+              // Calculate how many candles we need
+              const candlesPerDay = {
+                '1m': 1440,
+                '5m': 288,
+                '15m': 96,
+                '1h': 24,
+                '4h': 6,
+                '1d': 1
+              };
+              
+              const totalCandles = Math.min(1000, candlesPerDay[backtestTimeframe] * backtestDays);
+              
+              // Fetch historical data
+              const response = await fetch(
+                `https://api.binance.com/api/v3/klines?symbol=${coin.pair}&interval=${tf.interval}&limit=${totalCandles}`
+              );
+              const klines = await response.json();
+              
+              if (!klines || klines.length < 100) {
+                alert('Nedostatok dát pre backtest!');
+                setBacktestLoading(false);
+                return;
+              }
+              
+              // Run backtest simulation
+              const trades = [];
+              let balance = 10000; // Starting balance in USDT
+              let position = null; // Current open position
+              let wins = 0, losses = 0;
+              let totalProfit = 0;
+              let maxDrawdown = 0;
+              let peakBalance = balance;
+              
+              // We need at least 200 candles to calculate indicators properly
+              for (let i = 200; i < klines.length; i++) {
+                const historicalPrices = klines.slice(0, i).map(k => parseFloat(k[4]));
+                const historicalVolumes = klines.slice(0, i).map(k => parseFloat(k[5]));
+                const currentPrice = parseFloat(klines[i][4]);
+                const timestamp = klines[i][0];
+                
+                // Generate signal for current candle
+                const signal = generateSignal(historicalPrices, historicalVolumes);
+                
+                // Trading logic
+                if (!position) {
+                  // Not in position - look for entry
+                  if ((signal.type === 'LONG' || signal.type === 'SHORT') && 
+                      (signal.confidence === 'Vysoká' || signal.confidence === 'Veľmi vysoká')) {
+                    
+                    // Open position
+                    const entryPrice = currentPrice;
+                    const stopLossPercent = 0.03; // 3% stop loss
+                    const takeProfitPercent = 0.06; // 6% take profit (1:2 risk/reward)
+                    
+                    position = {
+                      type: signal.type,
+                      entryPrice,
+                      entryTime: timestamp,
+                      stopLoss: signal.type === 'LONG' ? entryPrice * (1 - stopLossPercent) : entryPrice * (1 + stopLossPercent),
+                      takeProfit: signal.type === 'LONG' ? entryPrice * (1 + takeProfitPercent) : entryPrice * (1 - takeProfitPercent),
+                      amount: balance * 0.95 / entryPrice, // Use 95% of balance (leave 5% for fees)
+                      confidence: signal.confidence
+                    };
+                  }
+                } else {
+                  // In position - check for exit conditions
+                  let exitReason = null;
+                  let exitPrice = currentPrice;
+                  
+                  if (position.type === 'LONG') {
+                    if (currentPrice >= position.takeProfit) {
+                      exitReason = 'Take Profit';
+                    } else if (currentPrice <= position.stopLoss) {
+                      exitReason = 'Stop Loss';
+                    } else if (signal.type === 'SHORT' && signal.confidence === 'Veľmi vysoká') {
+                      exitReason = 'Signal Reversal';
+                    }
+                  } else {
+                    if (currentPrice <= position.takeProfit) {
+                      exitReason = 'Take Profit';
+                    } else if (currentPrice >= position.stopLoss) {
+                      exitReason = 'Stop Loss';
+                    } else if (signal.type === 'LONG' && signal.confidence === 'Veľmi vysoká') {
+                      exitReason = 'Signal Reversal';
+                    }
+                  }
+                  
+                  if (exitReason) {
+                    // Close position
+                    const profitUSDT = position.type === 'LONG' 
+                      ? position.amount * (exitPrice - position.entryPrice)
+                      : position.amount * (position.entryPrice - exitPrice);
+                    
+                    const profitPercent = profitUSDT / balance * 100;
+                    
+                    balance += profitUSDT;
+                    totalProfit += profitUSDT;
+                    
+                    if (profitUSDT > 0) {
+                      wins++;
+                    } else {
+                      losses++;
+                    }
+                    
+                    // Track drawdown
+                    if (balance > peakBalance) {
+                      peakBalance = balance;
+                    }
+                    const currentDrawdown = (peakBalance - balance) / peakBalance * 100;
+                    if (currentDrawdown > maxDrawdown) {
+                      maxDrawdown = currentDrawdown;
+                    }
+                    
+                    // Record trade
+                    trades.push({
+                      type: position.type,
+                      entryPrice: position.entryPrice,
+                      exitPrice,
+                      entryTime: new Date(position.entryTime).toLocaleString('sk-SK'),
+                      exitTime: new Date(timestamp).toLocaleString('sk-SK'),
+                      profitUSDT: profitUSDT.toFixed(2),
+                      profitPercent: profitPercent.toFixed(2),
+                      exitReason,
+                      confidence: position.confidence
+                    });
+                    
+                    position = null;
+                  }
+                }
+              }
+              
+              // Close any remaining position at current price
+              if (position) {
+                const currentPrice = parseFloat(klines[klines.length - 1][4]);
+                const profitUSDT = position.type === 'LONG' 
+                  ? position.amount * (currentPrice - position.entryPrice)
+                  : position.amount * (position.entryPrice - currentPrice);
+                
+                balance += profitUSDT;
+                
+                trades.push({
+                  type: position.type,
+                  entryPrice: position.entryPrice,
+                  exitPrice: currentPrice,
+                  entryTime: new Date(position.entryTime).toLocaleString('sk-SK'),
+                  exitTime: new Date(klines[klines.length - 1][0]).toLocaleString('sk-SK'),
+                  profitUSDT: profitUSDT.toFixed(2),
+                  profitPercent: (profitUSDT / (balance - profitUSDT) * 100).toFixed(2),
+                  exitReason: 'End of Period',
+                  confidence: position.confidence
+                });
+              }
+              
+              // Calculate buy & hold performance
+              const startPrice = parseFloat(klines[200][4]);
+              const endPrice = parseFloat(klines[klines.length - 1][4]);
+              const buyHoldReturn = ((endPrice - startPrice) / startPrice * 100);
+              
+              // Calculate metrics
+              const totalTrades = wins + losses;
+              const winRate = totalTrades > 0 ? (wins / totalTrades * 100) : 0;
+              const totalReturn = ((balance - 10000) / 10000 * 100);
+              const avgWin = wins > 0 ? trades.filter(t => parseFloat(t.profitUSDT) > 0).reduce((sum, t) => sum + parseFloat(t.profitUSDT), 0) / wins : 0;
+              const avgLoss = losses > 0 ? Math.abs(trades.filter(t => parseFloat(t.profitUSDT) < 0).reduce((sum, t) => sum + parseFloat(t.profitUSDT), 0) / losses) : 0;
+              const profitFactor = avgLoss > 0 ? avgWin / avgLoss : 0;
+              
+              setBacktestResults({
+                startBalance: 10000,
+                endBalance: balance,
+                totalReturn,
+                totalProfit,
+                totalTrades,
+                wins,
+                losses,
+                winRate,
+                profitFactor,
+                maxDrawdown,
+                buyHoldReturn,
+                outperformance: totalReturn - buyHoldReturn,
+                avgWin,
+                avgLoss
+              });
+              
+              setBacktestTrades(trades.reverse()); // Most recent first
+              
+            } catch (error) {
+              console.error('Backtest error:', error);
+              alert('Chyba pri backteste: ' + error.message);
+            }
+            
+            setBacktestLoading(false);
+          };
+
+          const getSignalIcon = (type, size = 20) => {
+            if (type === 'LONG') return <TrendingUp size={size} />;
+            if (type === 'SHORT') return <TrendingDown size={size} />;
+            return <Activity size={size} />;
+          };
+
+          const getSignalColor = (type) => {
+            if (type === 'LONG') return 'text-green-400';
+            if (type === 'SHORT') return 'text-red-400';
+            return 'text-yellow-400';
+          };
+
+          const getSignalBg = (type) => {
+            if (type === 'LONG') return 'bg-green-900/30 border-green-600';
+            if (type === 'SHORT') return 'bg-red-900/30 border-red-600';
+            return 'bg-yellow-900/30 border-yellow-600';
+          };
+
+          // Render watchlist table
+          const renderWatchlist = () => {
+            const sortedCoins = watchedCoins.map(coin => {
+              const coinData = watchlistData[coin];
+              if (!coinData) return null;
+              
+              const signals = Object.values(coinData).map(d => d.signal);
+              const longCount = signals.filter(s => s.type === 'LONG' && (s.confidence === 'Vysoká' || s.confidence === 'Veľmi vysoká')).length;
+              const shortCount = signals.filter(s => s.type === 'SHORT' && (s.confidence === 'Vysoká' || s.confidence === 'Veľmi vysoká')).length;
+              const confluenceScore = Math.max(longCount, shortCount);
+              const primarySignal = longCount > shortCount ? 'LONG' : shortCount > longCount ? 'SHORT' : 'NEUTRAL';
+              
+              return {
+                coin,
+                coinData,
+                confluenceScore,
+                primarySignal,
+                longCount,
+                shortCount
+              };
+            }).filter(Boolean).sort((a, b) => b.confluenceScore - a.confluenceScore);
+
+            return (
+              <div className="space-y-4">
+                {sortedCoins.map(({ coin, coinData, confluenceScore, primarySignal, longCount, shortCount }) => {
+                  const firstTfData = Object.values(coinData)[0];
+                  if (!firstTfData) return null;
+                  
+                  return (
+                    <div 
+                      key={coin}
+                      className={`${getSignalBg(primarySignal)} border-2 rounded-xl p-6 ${
+                        confluenceScore >= 2 ? (primarySignal === 'LONG' ? 'glow-green' : 'glow-red') : ''
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-4">
+                          <div className={getSignalColor(primarySignal)}>
+                            {getSignalIcon(primarySignal, 32)}
+                          </div>
+                          <div>
+                            <h3 className="text-2xl font-bold text-white">{coin}</h3>
+                            <p className="text-gray-300">
+                              ${firstTfData.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
+                            </p>
+                            <p className={`text-sm ${firstTfData.priceChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                              {firstTfData.priceChange >= 0 ? '+' : ''}{firstTfData.priceChange.toFixed(2)}%
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="text-right">
+                          <div className="text-3xl font-bold text-white">
+                            {confluenceScore}/{watchedTimeframes.length}
+                          </div>
+                          <p className="text-gray-300 text-sm">Confluence</p>
+                          <p className={`text-xs mt-1 ${getSignalColor(primarySignal)}`}>
+                            {longCount}L / {shortCount}S
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                        {watchedTimeframes.map(tf => {
+                          const tfData = coinData[tf];
+                          if (!tfData) return null;
+                          
+                          const sig = tfData.signal;
+                          return (
+                            <div 
+                              key={tf}
+                              className={`${getSignalBg(sig.type)} border rounded-lg p-3 cursor-pointer hover:scale-105 transition-transform`}
+                              onClick={() => {
+                                setSelectedCoin(coin);
+                                setSelectedTimeframe(tf);
+                                setView('detail');
+                              }}
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-white font-bold text-sm">{tf}</span>
+                                <div className={getSignalColor(sig.type)}>
+                                  {getSignalIcon(sig.type, 16)}
+                                </div>
+                              </div>
+                              <p className={`text-xs font-semibold ${getSignalColor(sig.type)}`}>
+                                {sig.type}
+                              </p>
+                              <p className="text-xs text-gray-400">{sig.confidence}</p>
+                              <p className="text-xs text-gray-400">Sila: {sig.strength}%</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setSelectedCoin(coin);
+                          setSelectedTimeframe(watchedTimeframes[0]);
+                          setView('detail');
+                        }}
+                        className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                      >
+                        <Eye />
+                        Detail
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          };
+
+          // Render detail view
+          const renderDetail = () => {
+            if (!detailData) return <div className="text-white text-center">Načítavam...</div>;
+
+            const signal = detailData.signal;
+            const indicators = signal.indicators;
+
+            return (
+              <div className="space-y-6">
+                {/* Back button */}
+                <button
+                  onClick={() => setView('watchlist')}
+                  className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600"
+                >
+                  ← Späť na Watchlist
+                </button>
+
+                {/* Main signal card */}
+                <div className={`${getSignalBg(signal.type)} border-2 rounded-xl p-8`}>
+                  <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className={getSignalColor(signal.type)}>
+                        {getSignalIcon(signal.type, 48)}
+                      </div>
+                      <div>
+                        <h2 className="text-4xl font-bold text-white">{selectedCoin}</h2>
+                        <p className="text-2xl text-gray-300">
+                          ${detailData.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
+                        </p>
+                        <p className={`text-lg ${detailData.priceChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {detailData.priceChange >= 0 ? '+' : ''}{detailData.priceChange.toFixed(2)}%
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-5xl font-bold ${getSignalColor(signal.type)}`}>
+                        {signal.type}
+                      </p>
+                      <p className="text-xl text-white mt-2">{signal.confidence}</p>
+                      <p className="text-gray-300">Sila: {signal.strength}%</p>
+                      <p className="text-sm text-gray-400 mt-2">
+                        L: {signal.longScore} | S: {signal.shortScore}
+                      </p>
+                    </div>
+                  </div>
+
+                  {signal.signals && signal.signals.length > 0 && (
+                    <div className="mt-6 pt-4 border-t border-white/20">
+                      <h4 className="text-lg font-semibold text-white mb-3">🔍 Aktívne signály:</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {signal.signals.map((sig, idx) => (
+                          <div key={idx} className="flex items-start gap-2 text-gray-300">
+                            <span className="text-purple-400 mt-1">▸</span>
+                            <span className="text-sm">{sig}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Indicators grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-white/10 rounded-xl p-4">
+                    <h4 className="text-gray-300 text-xs mb-1">RSI (14)</h4>
+                    <p className="text-2xl font-bold text-white">{indicators.rsi}</p>
+                    <p className="text-xs text-gray-400">
+                      {indicators.rsi < 30 ? '🔥 Prepredaný' : indicators.rsi > 70 ? '❄️ Prekúpený' : '⚖️ Neutrálny'}
+                    </p>
+                  </div>
+                  <div className="bg-white/10 rounded-xl p-4">
+                    <h4 className="text-gray-300 text-xs mb-1">Stoch RSI</h4>
+                    <p className="text-2xl font-bold text-white">{indicators.stochRSI || 'N/A'}</p>
+                  </div>
+                  <div className="bg-white/10 rounded-xl p-4">
+                    <h4 className="text-gray-300 text-xs mb-1">MACD</h4>
+                    <p className="text-2xl font-bold text-white">{indicators.macd}</p>
+                  </div>
+                  <div className="bg-white/10 rounded-xl p-4">
+                    <h4 className="text-gray-300 text-xs mb-1">SMA 20</h4>
+                    <p className="text-lg font-bold text-white">${parseFloat(indicators.sma20).toLocaleString()}</p>
+                  </div>
+                </div>
+
+                {/* ADX Card */}
+                {indicators.adx && (
+                  <div className="bg-white/10 rounded-xl p-6">
+                    <h3 className="text-xl font-bold text-white mb-4">📈 ADX - Trend Strength</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className={`rounded-lg p-4 border-2 ${
+                        indicators.adxStrength === 'VERY_STRONG' ? 'bg-purple-900/30 border-purple-500' :
+                        indicators.adxStrength === 'STRONG' ? 'bg-blue-900/30 border-blue-500' :
+                        indicators.adxStrength === 'MODERATE' ? 'bg-yellow-900/30 border-yellow-500' :
+                        'bg-gray-800/30 border-gray-600'
+                      }`}>
+                        <h4 className="text-gray-300 text-sm mb-2">ADX Value</h4>
+                        <p className="text-3xl font-bold text-white">{indicators.adx}</p>
+                        <p className={`text-sm mt-1 font-semibold ${
+                          indicators.adxStrength === 'VERY_STRONG' ? 'text-purple-400' :
+                          indicators.adxStrength === 'STRONG' ? 'text-blue-400' :
+                          indicators.adxStrength === 'MODERATE' ? 'text-yellow-400' :
+                          'text-gray-400'
+                        }`}>
+                          {indicators.adxStrength === 'VERY_STRONG' ? '🔥 Veľmi silný' :
+                           indicators.adxStrength === 'STRONG' ? '💪 Silný trend' :
+                           indicators.adxStrength === 'MODERATE' ? '📊 Stredný' :
+                           '😴 Slabý trend'}
+                        </p>
+                      </div>
+                      
+                      <div className="bg-white/10 rounded-lg p-4 border-2 border-gray-600">
+                        <h4 className="text-gray-300 text-sm mb-2">Directional Indicators</h4>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-green-400 text-sm">+DI (Bulls):</span>
+                          <span className="text-white font-bold">{indicators.adxPlusDI}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-red-400 text-sm">-DI (Bears):</span>
+                          <span className="text-white font-bold">{indicators.adxMinusDI}</span>
+                        </div>
+                      </div>
+                      
+                      <div className={`rounded-lg p-4 border-2 ${
+                        indicators.adxTrend === 'BULLISH' ? 'bg-green-900/30 border-green-500' :
+                        indicators.adxTrend === 'BEARISH' ? 'bg-red-900/30 border-red-500' :
+                        'bg-gray-800/30 border-gray-600'
+                      }`}>
+                        <h4 className="text-gray-300 text-sm mb-2">Trend Direction</h4>
+                        <p className={`text-2xl font-bold ${
+                          indicators.adxTrend === 'BULLISH' ? 'text-green-400' :
+                          indicators.adxTrend === 'BEARISH' ? 'text-red-400' :
+                          'text-gray-400'
+                        }`}>
+                          {indicators.adxTrend === 'BULLISH' ? '↗️ BULLISH' :
+                           indicators.adxTrend === 'BEARISH' ? '↘️ BEARISH' :
+                           '↔️ NEUTRAL'}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {indicators.adxTrend === 'BULLISH' ? 'Býci vedú!' :
+                           indicators.adxTrend === 'BEARISH' ? 'Medvede vedú!' :
+                           'Nejasný smer'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-4 p-4 bg-blue-900/20 border border-blue-600 rounded-lg">
+                      <p className="text-blue-300 text-sm">
+                        💡 <strong>ADX Interpretácia:</strong> {
+                          indicators.adx > 50 ? 'Extrémne silný trend! Vysoká pravdepodobnosť pokračovania.' :
+                          indicators.adx > 30 ? 'Silný trend. Dobrá príležitosť na trend-following.' :
+                          indicators.adx > 20 ? 'Stredný trend. Trend sa rozvíja.' :
+                          'Slabý/žiadny trend. Lepšie počkať na jasnejší smer alebo použiť range stratégiu.'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* SL/TP Levels */}
+                {detailData.sltp && (
+                  <div className="bg-white/10 rounded-xl p-6">
+                    <h3 className="text-xl font-bold text-white mb-4">🎯 Stop Loss & Take Profit Levely</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-red-900/30 border-2 border-red-600 rounded-lg p-4">
+                        <p className="text-red-300 text-sm mb-1">⛔ Stop Loss</p>
+                        <p className="text-white font-bold text-xl">${detailData.sltp.stopLoss.toFixed(2)}</p>
+                        <p className="text-red-300 text-xs mt-1">-{detailData.sltp.riskPercent.toFixed(2)}%</p>
+                      </div>
+                      <div className="bg-green-900/30 border-2 border-green-600 rounded-lg p-4">
+                        <p className="text-green-300 text-sm mb-1">🎯 TP1</p>
+                        <p className="text-white font-bold text-xl">${detailData.sltp.takeProfit1.toFixed(2)}</p>
+                        <p className="text-green-300 text-xs mt-1">+{detailData.sltp.rewardPercent[0].toFixed(2)}% (1:{detailData.sltp.riskReward[0].toFixed(1)})</p>
+                      </div>
+                      <div className="bg-green-900/30 border-2 border-green-500 rounded-lg p-4">
+                        <p className="text-green-300 text-sm mb-1">🎯 TP2</p>
+                        <p className="text-white font-bold text-xl">${detailData.sltp.takeProfit2.toFixed(2)}</p>
+                        <p className="text-green-300 text-xs mt-1">+{detailData.sltp.rewardPercent[1].toFixed(2)}% (1:{detailData.sltp.riskReward[1].toFixed(1)})</p>
+                      </div>
+                      <div className="bg-green-900/30 border-2 border-green-400 rounded-lg p-4">
+                        <p className="text-green-300 text-sm mb-1">🎯 TP3</p>
+                        <p className="text-white font-bold text-xl">${detailData.sltp.takeProfit3.toFixed(2)}</p>
+                        <p className="text-green-300 text-xs mt-1">+{detailData.sltp.rewardPercent[2].toFixed(2)}% (1:{detailData.sltp.riskReward[2].toFixed(1)})</p>
+                      </div>
+                    </div>
+                    
+                    {signal.srData && signal.srData.nearestSupport && signal.type === 'LONG' && (
+                      <div className="mt-4 p-3 bg-green-900/20 border border-green-600 rounded-lg">
+                        <p className="text-green-300 text-sm">
+                          💡 SL umiestnený pod nearest support (${signal.srData.nearestSupport.price.toFixed(2)})
+                        </p>
+                      </div>
+                    )}
+                    
+                    {signal.srData && signal.srData.nearestResistance && signal.type === 'SHORT' && (
+                      <div className="mt-4 p-3 bg-red-900/20 border border-red-600 rounded-lg">
+                        <p className="text-red-300 text-sm">
+                          💡 SL umiestnený nad nearest resistance (${signal.srData.nearestResistance.price.toFixed(2)})
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* S/R Analysis */}
+                {signal.srData && (signal.srData.supports.length > 0 || signal.srData.resistances.length > 0) && (
+                  <div className="bg-white/10 rounded-xl p-6">
+                    <h3 className="text-xl font-bold text-white mb-4">📊 Support & Resistance Levely</h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Supports */}
+                      {signal.srData.supports.length > 0 && (
+                        <div>
+                          <h4 className="text-green-400 font-semibold mb-3">🟢 Support Levely:</h4>
+                          <div className="space-y-2">
+                            {signal.srData.supports.map((support, idx) => {
+                              const distance = ((detailData.price - support.price) / detailData.price * 100).toFixed(2);
+                              const strength = support.strength >= 3 ? 'Strong' : support.strength >= 2 ? 'Medium' : 'Weak';
+                              return (
+                                <div key={idx} className="bg-green-900/20 border border-green-600 rounded p-3">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-white font-bold">${support.price.toFixed(2)}</span>
+                                    <span className="text-green-400 text-sm">{strength}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center mt-1">
+                                    <span className="text-gray-400 text-xs">
+                                      {support.touches && typeof support.touches === 'number' ? `${support.touches}x touches` : support.type || ''}
+                                    </span>
+                                    <span className="text-gray-400 text-xs">-{distance}%</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Resistances */}
+                      {signal.srData.resistances.length > 0 && (
+                        <div>
+                          <h4 className="text-red-400 font-semibold mb-3">🔴 Resistance Levely:</h4>
+                          <div className="space-y-2">
+                            {signal.srData.resistances.map((resistance, idx) => {
+                              const distance = ((resistance.price - detailData.price) / detailData.price * 100).toFixed(2);
+                              const strength = resistance.strength >= 3 ? 'Strong' : resistance.strength >= 2 ? 'Medium' : 'Weak';
+                              return (
+                                <div key={idx} className="bg-red-900/20 border border-red-600 rounded p-3">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-white font-bold">${resistance.price.toFixed(2)}</span>
+                                    <span className="text-red-400 text-sm">{strength}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center mt-1">
+                                    <span className="text-gray-400 text-xs">
+                                      {resistance.touches && typeof resistance.touches === 'number' ? `${resistance.touches}x touches` : resistance.type || ''}
+                                    </span>
+                                    <span className="text-gray-400 text-xs">+{distance}%</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* S/R Analysis message */}
+                    {signal.srAnalysis && (
+                      <div className={`mt-4 p-4 rounded-lg border-2 ${
+                        signal.srAnalysis.risk === 'LOW' ? 'bg-green-900/20 border-green-600' :
+                        signal.srAnalysis.risk === 'HIGH' ? 'bg-red-900/20 border-red-600' :
+                        'bg-yellow-900/20 border-yellow-600'
+                      }`}>
+                        <p className={`font-semibold ${
+                          signal.srAnalysis.risk === 'LOW' ? 'text-green-300' :
+                          signal.srAnalysis.risk === 'HIGH' ? 'text-red-300' :
+                          'text-yellow-300'
+                        }`}>
+                          {signal.srAnalysis.reason}
+                        </p>
+                        {signal.srAnalysis.riskReward && (
+                          <p className="text-gray-300 text-sm mt-2">
+                            📈 Risk/Reward Ratio: 1:{signal.srAnalysis.riskReward.toFixed(1)}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Chart */}
+                {detailData.chartData && (
+                  <div className="bg-white/10 rounded-xl p-6">
+                    <h3 className="text-xl font-bold text-white mb-4">
+                      📈 Graf - {selectedCoin} / {selectedTimeframe}
+                    </h3>
+                    <div className="mb-3 p-3 bg-blue-900/20 border border-blue-600 rounded-lg">
+                      <p className="text-blue-300 text-sm">
+                        ℹ️ <strong>Graf zobrazuje:</strong> Cena, SMA 20, Bollinger Bands, 
+                        <span className="text-green-400"> Support levely (zelené)</span>, 
+                        <span className="text-red-400"> Resistance levely (červené)</span>, 
+                        <span className="text-red-500"> Stop Loss</span>, a 
+                        <span className="text-green-500"> Take Profit levely</span>
+                      </p>
+                    </div>
+                    <div style={{ height: '450px' }}>
+                      <canvas ref={chartRef}></canvas>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          };
+
+          // Render backtesting view
+          const renderBacktest = () => {
+            return (
+              <div className="space-y-6">
+                {/* Backtest configuration */}
+                <div className="bg-white/10 rounded-xl p-6">
+                  <h3 className="text-2xl font-bold text-white mb-6">🧪 Backtest Stratégie</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div>
+                      <label className="block text-gray-300 mb-2">Coin:</label>
+                      <select
+                        value={backtestCoin}
+                        onChange={(e) => setBacktestCoin(e.target.value)}
+                        className="w-full px-4 py-2 rounded-lg bg-gray-800 text-white border border-gray-600 outline-none"
+                      >
+                        {allCoins.map(coin => (
+                          <option key={coin.symbol} value={coin.symbol}>{coin.symbol}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-gray-300 mb-2">Timeframe:</label>
+                      <select
+                        value={backtestTimeframe}
+                        onChange={(e) => setBacktestTimeframe(e.target.value)}
+                        className="w-full px-4 py-2 rounded-lg bg-gray-800 text-white border border-gray-600 outline-none"
+                      >
+                        {allTimeframes.map(tf => (
+                          <option key={tf.value} value={tf.value}>{tf.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-gray-300 mb-2">Počet dní:</label>
+                      <select
+                        value={backtestDays}
+                        onChange={(e) => setBacktestDays(parseInt(e.target.value))}
+                        className="w-full px-4 py-2 rounded-lg bg-gray-800 text-white border border-gray-600 outline-none"
+                      >
+                        <option value={7}>7 dní</option>
+                        <option value={14}>14 dní</option>
+                        <option value={30}>30 dní</option>
+                        <option value={60}>60 dní</option>
+                        <option value={90}>90 dní</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={runBacktest}
+                    disabled={backtestLoading}
+                    className="w-full px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {backtestLoading ? (
+                      <>
+                        <RefreshCw className="animate-spin" />
+                        Spúšťam backtest...
+                      </>
+                    ) : (
+                      <>🚀 Spustiť Backtest</>
+                    )}
+                  </button>
+                  
+                  <div className="mt-4 p-4 bg-blue-900/30 border border-blue-600 rounded-lg">
+                    <p className="text-blue-300 text-sm">
+                      ℹ️ <strong>Info:</strong> Backtest testuje stratégiu na historických dátach. Vstupuje pri HIGH/VERY HIGH confidence signáloch, používa 3% SL a 6% TP (1:2 risk/reward).
+                    </p>
+                  </div>
+                </div>
+
+                {/* Backtest results */}
+                {backtestResults && (
+                  <>
+                    {/* Summary cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className={`${backtestResults.totalReturn >= 0 ? 'bg-green-900/30 border-green-600' : 'bg-red-900/30 border-red-600'} border-2 rounded-xl p-6`}>
+                        <h4 className="text-gray-300 text-sm mb-2">Total Return</h4>
+                        <p className={`text-3xl font-bold ${backtestResults.totalReturn >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {backtestResults.totalReturn >= 0 ? '+' : ''}{backtestResults.totalReturn.toFixed(2)}%
+                        </p>
+                        <p className="text-gray-400 text-sm mt-1">
+                          ${backtestResults.totalProfit.toFixed(2)}
+                        </p>
+                      </div>
+                      
+                      <div className="bg-white/10 border-2 border-gray-600 rounded-xl p-6">
+                        <h4 className="text-gray-300 text-sm mb-2">Win Rate</h4>
+                        <p className="text-3xl font-bold text-white">
+                          {backtestResults.winRate.toFixed(1)}%
+                        </p>
+                        <p className="text-gray-400 text-sm mt-1">
+                          {backtestResults.wins}W / {backtestResults.losses}L
+                        </p>
+                      </div>
+                      
+                      <div className="bg-white/10 border-2 border-gray-600 rounded-xl p-6">
+                        <h4 className="text-gray-300 text-sm mb-2">Profit Factor</h4>
+                        <p className={`text-3xl font-bold ${backtestResults.profitFactor >= 1.5 ? 'text-green-400' : backtestResults.profitFactor >= 1 ? 'text-yellow-400' : 'text-red-400'}`}>
+                          {backtestResults.profitFactor.toFixed(2)}
+                        </p>
+                        <p className="text-gray-400 text-sm mt-1">
+                          {backtestResults.totalTrades} trades
+                        </p>
+                      </div>
+                      
+                      <div className="bg-white/10 border-2 border-gray-600 rounded-xl p-6">
+                        <h4 className="text-gray-300 text-sm mb-2">Max Drawdown</h4>
+                        <p className="text-3xl font-bold text-red-400">
+                          -{backtestResults.maxDrawdown.toFixed(2)}%
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Comparison with Buy & Hold */}
+                    <div className="bg-white/10 rounded-xl p-6">
+                      <h4 className="text-xl font-bold text-white mb-4">📊 Porovnanie s Buy & Hold</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <p className="text-gray-300 text-sm mb-1">Stratégia Return:</p>
+                          <p className={`text-2xl font-bold ${backtestResults.totalReturn >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {backtestResults.totalReturn >= 0 ? '+' : ''}{backtestResults.totalReturn.toFixed(2)}%
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-300 text-sm mb-1">Buy & Hold Return:</p>
+                          <p className={`text-2xl font-bold ${backtestResults.buyHoldReturn >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {backtestResults.buyHoldReturn >= 0 ? '+' : ''}{backtestResults.buyHoldReturn.toFixed(2)}%
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-300 text-sm mb-1">Outperformance:</p>
+                          <p className={`text-2xl font-bold ${backtestResults.outperformance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {backtestResults.outperformance >= 0 ? '+' : ''}{backtestResults.outperformance.toFixed(2)}%
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {backtestResults.outperformance > 0 ? (
+                        <div className="mt-4 p-3 bg-green-900/30 border border-green-600 rounded-lg">
+                          <p className="text-green-300 text-sm">
+                            ✅ Stratégia <strong>porazila</strong> buy & hold o {backtestResults.outperformance.toFixed(2)}%!
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="mt-4 p-3 bg-red-900/30 border border-red-600 rounded-lg">
+                          <p className="text-red-300 text-sm">
+                            ⚠️ Buy & hold bol lepší o {Math.abs(backtestResults.outperformance).toFixed(2)}%
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Additional metrics */}
+                    <div className="bg-white/10 rounded-xl p-6">
+                      <h4 className="text-xl font-bold text-white mb-4">📈 Ďalšie Metriky</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                          <p className="text-gray-300 text-sm">Starting Balance:</p>
+                          <p className="text-lg font-bold text-white">${backtestResults.startBalance.toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-300 text-sm">Ending Balance:</p>
+                          <p className="text-lg font-bold text-white">${backtestResults.endBalance.toLocaleString('en-US', {maximumFractionDigits: 2})}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-300 text-sm">Avg Win:</p>
+                          <p className="text-lg font-bold text-green-400">${backtestResults.avgWin.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-300 text-sm">Avg Loss:</p>
+                          <p className="text-lg font-bold text-red-400">-${backtestResults.avgLoss.toFixed(2)}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Trade history */}
+                    <div className="bg-white/10 rounded-xl p-6">
+                      <h4 className="text-xl font-bold text-white mb-4">📜 História Obchodov (Top 50)</h4>
+                      <div className="overflow-x-auto scrollbar-thin">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-600">
+                              <th className="text-left text-gray-300 p-2">Type</th>
+                              <th className="text-left text-gray-300 p-2">Entry</th>
+                              <th className="text-left text-gray-300 p-2">Exit</th>
+                              <th className="text-left text-gray-300 p-2">Profit</th>
+                              <th className="text-left text-gray-300 p-2">%</th>
+                              <th className="text-left text-gray-300 p-2">Exit Reason</th>
+                              <th className="text-left text-gray-300 p-2">Time</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {backtestTrades.slice(0, 50).map((trade, idx) => (
+                              <tr key={idx} className="border-b border-gray-700 hover:bg-white/5">
+                                <td className="p-2">
+                                  <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                    trade.type === 'LONG' ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'
+                                  }`}>
+                                    {trade.type}
+                                  </span>
+                                </td>
+                                <td className="p-2 text-gray-300">${parseFloat(trade.entryPrice).toFixed(2)}</td>
+                                <td className="p-2 text-gray-300">${parseFloat(trade.exitPrice).toFixed(2)}</td>
+                                <td className={`p-2 font-bold ${parseFloat(trade.profitUSDT) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                  {parseFloat(trade.profitUSDT) >= 0 ? '+' : ''}${trade.profitUSDT}
+                                </td>
+                                <td className={`p-2 font-bold ${parseFloat(trade.profitPercent) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                  {parseFloat(trade.profitPercent) >= 0 ? '+' : ''}{trade.profitPercent}%
+                                </td>
+                                <td className="p-2 text-gray-400 text-xs">{trade.exitReason}</td>
+                                <td className="p-2 text-gray-400 text-xs">{trade.entryTime}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {backtestTrades.length > 50 && (
+                          <p className="text-gray-400 text-sm mt-4 text-center">
+                            Zobrazených prvých 50 z {backtestTrades.length} obchodov
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          };
+
+          return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4">
+              <div className="max-w-7xl mx-auto">
+                {/* Header */}
+                <div className="text-center mb-8 pt-4">
+                  <h1 className="text-4xl font-bold text-white mb-2">
+                    🎯 Crypto Analyzer Ultimate
+                  </h1>
+                  <p className="text-gray-300">Multi-Coin Watchlist • Multi-TF Confluence • Smart Alerts</p>
+                  
+                  <div className="flex justify-center gap-3 mt-4">
+                    <button
+                      onClick={() => setView('watchlist')}
+                      className={`px-6 py-2 rounded-lg font-semibold ${
+                        view === 'watchlist' ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300'
+                      }`}
+                    >
+                      📊 Watchlist
+                    </button>
+                    <button
+                      onClick={() => setView('backtest')}
+                      className={`px-6 py-2 rounded-lg font-semibold ${
+                        view === 'backtest' ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300'
+                      }`}
+                    >
+                      🧪 Backtest
+                    </button>
+                    <button
+                      onClick={() => setShowSettings(!showSettings)}
+                      className="px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 flex items-center gap-2"
+                    >
+                      <Settings />
+                      Nastavenia
+                    </button>
+                  </div>
+                </div>
+
+                {/* Alerts status */}
+                {alertsEnabled && telegramToken && telegramChatId && (
+                  <div className="bg-green-900/30 rounded-xl p-4 mb-6 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Bell className="pulse text-green-400" />
+                      <div>
+                        <span className="text-green-300 font-semibold block">Telegram alerty aktívne</span>
+                        <span className="text-green-400 text-sm">
+                          Mode: {alertMode === 'all' ? 'Všetky' : alertMode === 'confluence' ? 'Confluence (2+)' : 'Perfekt (All TF)'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-green-300 text-sm">Sledované:</p>
+                      <p className="text-white font-bold">{watchedCoins.length} coinov</p>
+                      <p className="text-white font-bold">{watchedTimeframes.length} timeframes</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Settings panel */}
+                {showSettings && (
+                  <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-6">
+                    <h3 className="text-2xl font-bold text-white mb-6">⚙️ Nastavenia</h3>
+                    
+                    {/* Telegram settings */}
+                    <div className="mb-6">
+                      <h4 className="text-lg font-semibold text-white mb-3">📱 Telegram</h4>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-gray-300 mb-2 text-sm">Bot Token:</label>
+                          <input
+                            type="text"
+                            value={telegramToken}
+                            onChange={(e) => setTelegramToken(e.target.value)}
+                            placeholder="123456789:ABCdef..."
+                            className="w-full px-4 py-2 rounded-lg bg-gray-800 text-white border border-gray-600 focus:border-purple-500 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-gray-300 mb-2 text-sm">Chat ID:</label>
+                          <input
+                            type="text"
+                            value={telegramChatId}
+                            onChange={(e) => setTelegramChatId(e.target.value)}
+                            placeholder="123456789"
+                            className="w-full px-4 py-2 rounded-lg bg-gray-800 text-white border border-gray-600 focus:border-purple-500 outline-none"
+                          />
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={alertsEnabled}
+                            onChange={(e) => setAlertsEnabled(e.target.checked)}
+                            className="w-5 h-5"
+                          />
+                          <label className="text-gray-300">Povoliť alerty</label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Alert mode */}
+                    <div className="mb-6">
+                      <h4 className="text-lg font-semibold text-white mb-3">🔔 Alert Mode</h4>
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="alertMode"
+                            value="all"
+                            checked={alertMode === 'all'}
+                            onChange={(e) => setAlertMode(e.target.value)}
+                            className="w-4 h-4"
+                          />
+                          <span className="text-gray-300">Všetky silné signály (1+ TF)</span>
+                        </label>
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="alertMode"
+                            value="confluence"
+                            checked={alertMode === 'confluence'}
+                            onChange={(e) => setAlertMode(e.target.value)}
+                            className="w-4 h-4"
+                          />
+                          <span className="text-gray-300">Confluence (2+ TF) - Odporúčané</span>
+                        </label>
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="alertMode"
+                            value="perfect"
+                            checked={alertMode === 'perfect'}
+                            onChange={(e) => setAlertMode(e.target.value)}
+                            className="w-4 h-4"
+                          />
+                          <span className="text-gray-300">Perfektné (všetky TF) - Najsilnejšie</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Watched coins */}
+                    <div className="mb-6">
+                      <h4 className="text-lg font-semibold text-white mb-3">💰 Sledované Coiny</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {allCoins.map(coin => (
+                          <button
+                            key={coin.symbol}
+                            onClick={() => toggleWatchCoin(coin.symbol)}
+                            className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                              watchedCoins.includes(coin.symbol)
+                                ? 'bg-purple-600 text-white'
+                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            }`}
+                          >
+                            {coin.symbol}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Watched timeframes */}
+                    <div className="mb-6">
+                      <h4 className="text-lg font-semibold text-white mb-3">⏰ Sledované Timeframes</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {allTimeframes.map(tf => (
+                          <button
+                            key={tf.value}
+                            onClick={() => toggleWatchTimeframe(tf.value)}
+                            className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                              watchedTimeframes.includes(tf.value)
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            }`}
+                          >
+                            {tf.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Buttons */}
+                    <div className="flex gap-3">
+                      <button
+                        onClick={saveSettings}
+                        className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
+                      >
+                        💾 Uložiť
+                      </button>
+                      <button
+                        onClick={testTelegramAlert}
+                        className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+                      >
+                        📤 Test Alert
+                      </button>
+                      <button
+                        onClick={() => setShowSettings(false)}
+                        className="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600"
+                      >
+                        Zavrieť
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Loading indicator */}
+                {loading && view === 'watchlist' && Object.keys(watchlistData).length === 0 && (
+                  <div className="text-center text-white py-12">
+                    <RefreshCw className="animate-spin mx-auto mb-4" />
+                    <p>Načítavam watchlist...</p>
+                  </div>
+                )}
+
+                {/* Main content */}
+                {!loading || Object.keys(watchlistData).length > 0 || view === 'backtest' ? (
+                  view === 'watchlist' ? renderWatchlist() : 
+                  view === 'backtest' ? renderBacktest() :
+                  renderDetail()
+                ) : null}
+
+                {/* Last update */}
+                {lastUpdate && (
+                  <p className="text-center text-gray-400 text-sm mt-6">
+                    ⚡ Update: {lastUpdate.toLocaleTimeString('sk-SK')}
+                  </p>
+                )}
+
+                {/* Disclaimer */}
+                <div className="bg-red-900/30 rounded-xl p-4 border-2 border-red-500 mt-6">
+                  <h3 className="text-lg font-bold text-red-300 mb-2">⚠️ Disclaimer</h3>
+                  <p className="text-gray-300 text-sm">
+                    Len vzdelávacie účely. Trading je rizikový. DYOR. Not financial advice.
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<CryptoTradingAnalyzer />);
+    </script>
+</body>
+</html>
