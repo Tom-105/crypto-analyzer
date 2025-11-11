@@ -44,7 +44,7 @@
 ## 🚀 Quick Start
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/crypto-analyzer-ultimate.git
+git clone https://github.com/Tom-105/crypto-analyzer-ultimate.git
 cd crypto-analyzer-ultimate
 docker-compose up -d
 open http://localhost:8080
